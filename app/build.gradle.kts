@@ -29,5 +29,6 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("com.unity3d.ads:unity-ads:4.22.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
