@@ -204,7 +204,7 @@ private class UnityAdsController(private val activity: ComponentActivity) {
                 override fun onUnityAdsShowClick(placementId: String) {}
                 override fun onUnityAdsShowComplete(
                     placementId: String,
-                    state: UnityAdsShowCompletionState
+                    state: UnityAds.UnityAdsShowCompletionState
                 ) {
                     fullScreenAdShowing = false
                     if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
