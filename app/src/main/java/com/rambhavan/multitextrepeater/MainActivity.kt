@@ -26,21 +26,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.unity3d.ads.IUnityAdsInitializationListener
+import com.unity3d.ads.IUnityAdsLoadListener
+import com.unity3d.ads.IUnityAdsShowListener
 import com.unity3d.ads.UnityAds
-import com.unity3d.ads.InitializationConfiguration
-import com.unity3d.ads.InitializationListener
-import com.unity3d.ads.BannerAd
-import com.unity3d.ads.BannerLoadConfiguration
-import com.unity3d.ads.BannerSize
-import com.unity3d.ads.InterstitialAd
-import com.unity3d.ads.LoadConfiguration
-import com.unity3d.ads.ShowConfiguration
-import com.unity3d.ads.RewardedAd
-import com.unity3d.ads.BannerLoadListener
-import com.unity3d.ads.InterstitialShowListener
-import com.unity3d.ads.RewardedShowListener
-import com.unity3d.ads.ShowFinishState
-import com.unity3d.ads.UnityAdsError
+import com.unity3d.ads.UnityAdsLoadOptions
+import com.unity3d.ads.UnityAdsShowOptions
+import com.unity3d.ads.UnityAdsShowCompletionState
+import com.unity3d.services.banners.BannerErrorInfo
+import com.unity3d.services.banners.BannerView
+import com.unity3d.services.banners.UnityBannerSize
 
 private const val UNITY_GAME_ID = "800449377"
 private const val BANNER_PLACEMENT = "BP_Banner_Android"
@@ -75,124 +70,157 @@ class MainActivity : ComponentActivity() {
 private class UnityAdsController(private val activity: ComponentActivity) {
     var bannerView by mutableStateOf<View?>(null)
         private set
+    private var banner: BannerView? = null
     private var initialized = false
-    private var bannerAd: BannerAd? = null
-    private var interstitialAd: InterstitialAd? = null
-    private var rewardedAd: RewardedAd? = null
+    private var interstitialLoaded = false
+    private var rewardedLoaded = false
     private var generationsSinceAd = 0
     private var fullScreenAdShowing = false
 
-    @OptIn(com.unity3d.ads.UnityAdsExperimental::class)\n    fun initialize() {
-        val config = InitializationConfiguration.Builder(UNITY_GAME_ID)
-            .withTestMode(UNITY_TEST_MODE)
-            .build()
-        UnityAds.initialize(config, InitializationListener { error ->
-            if (error == null) {
-                initialized = true
-                loadBanner()
-                loadInterstitial()
-                loadRewarded()
-            } else {
-                Toast.makeText(activity, "Unity Ads initialization failed: ${error.message}", Toast.LENGTH_LONG).show()
+    private val bannerListener = object : BannerView.IListener {
+        override fun onBannerLoaded(bannerAdView: BannerView) {
+            activity.runOnUiThread { bannerView = bannerAdView }
+        }
+        override fun onBannerShown(bannerAdView: BannerView) {}
+        override fun onBannerClick(bannerAdView: BannerView) {}
+        override fun onBannerFailedToLoad(bannerAdView: BannerView, errorInfo: BannerErrorInfo) {
+            android.util.Log.w("UnityAds", "Banner failed to load: $errorInfo")
+        }
+        override fun onBannerLeftApplication(bannerAdView: BannerView) {}
+    }
+
+    fun initialize() {
+        UnityAds.initialize(activity.applicationContext, UNITY_GAME_ID, UNITY_TEST_MODE,
+            object : IUnityAdsInitializationListener {
+                override fun onInitializationComplete() {
+                    initialized = true
+                    loadBanner()
+                    loadInterstitial()
+                    loadRewarded()
+                }
+                override fun onInitializationFailed(
+                    error: UnityAds.UnityAdsInitializationError,
+                    message: String
+                ) {
+                    android.util.Log.e("UnityAds", "Initialization failed: $message")
+                }
             }
-        })
+        )
     }
 
     private fun loadBanner() {
-        if (!initialized) return
-        val config = BannerLoadConfiguration.Builder(BANNER_PLACEMENT, BannerSize(320, 50)).build()
-        BannerAd.load(config, BannerLoadListener { ad, error ->
-            if (ad != null) {
-                bannerAd = ad
-                bannerView = ad.view
-            } else if (error != null) {
-                android.util.Log.w("UnityAds", "Banner load failed: ${error.message}")
+        if (!initialized || banner != null) return
+        val bannerAd = BannerView(activity, BANNER_PLACEMENT, UnityBannerSize(320, 50))
+        bannerAd.setListener(bannerListener)
+        banner = bannerAd
+        bannerAd.load()
+    }
+
+    private fun loadInterstitial() {
+        if (!initialized || interstitialLoaded) return
+        UnityAds.load(INTERSTITIAL_PLACEMENT, object : IUnityAdsLoadListener {
+            override fun onUnityAdsAdLoaded(placementId: String) {
+                interstitialLoaded = true
+            }
+            override fun onUnityAdsFailedToLoad(
+                placementId: String,
+                error: UnityAds.UnityAdsLoadError,
+                message: String
+            ) {
+                interstitialLoaded = false
+                android.util.Log.w("UnityAds", "Interstitial load failed: $message")
             }
         })
     }
 
-    private fun loadInterstitial() {
-        if (!initialized) return
-        val config = LoadConfiguration.Builder(INTERSTITIAL_PLACEMENT).build()
-        InterstitialAd.load(config) { ad, error ->
-            if (ad != null) interstitialAd = ad
-            else if (error != null) android.util.Log.w("UnityAds", "Interstitial load failed: ${error.message}")
-        }
-    }
-
     private fun loadRewarded() {
-        if (!initialized) return
-        val config = LoadConfiguration.Builder(REWARDED_PLACEMENT).build()
-        RewardedAd.load(config) { ad, error ->
-            if (ad != null) {
-                rewardedAd = ad
-                ad.onAdExpired = com.unity3d.ads.AdExpiredListener { rewardedAd = null; loadRewarded() }
-            } else if (error != null) {
-                android.util.Log.w("UnityAds", "Rewarded load failed: ${error.message}")
+        if (!initialized || rewardedLoaded) return
+        UnityAds.load(REWARDED_PLACEMENT, object : IUnityAdsLoadListener {
+            override fun onUnityAdsAdLoaded(placementId: String) {
+                rewardedLoaded = true
             }
-        }
+            override fun onUnityAdsFailedToLoad(
+                placementId: String,
+                error: UnityAds.UnityAdsLoadError,
+                message: String
+            ) {
+                rewardedLoaded = false
+                android.util.Log.w("UnityAds", "Rewarded load failed: $message")
+            }
+        })
     }
 
     fun onGenerationCompleted() {
         generationsSinceAd++
-        if (generationsSinceAd >= 4) {
-            val ad = interstitialAd
-            if (ad != null && !fullScreenAdShowing) {
-                generationsSinceAd = 0
-                interstitialAd = null
-                fullScreenAdShowing = true
-                ad.show(ShowConfiguration.Builder().build(), object : InterstitialShowListener {
-                    override fun onStarted(unityAd: InterstitialAd) {}
-                    override fun onClicked(unityAd: InterstitialAd) {}
-                    override fun onCompleted(unityAd: InterstitialAd, state: ShowFinishState) {
+        if (generationsSinceAd >= 4 && interstitialLoaded && !fullScreenAdShowing) {
+            generationsSinceAd = 0
+            interstitialLoaded = false
+            fullScreenAdShowing = true
+            UnityAds.show(activity, INTERSTITIAL_PLACEMENT, UnityAdsShowOptions(),
+                object : IUnityAdsShowListener {
+                    override fun onUnityAdsShowFailure(
+                        placementId: String,
+                        error: UnityAds.UnityAdsShowError,
+                        message: String
+                    ) {
                         fullScreenAdShowing = false
                         loadInterstitial()
                     }
-                    override fun onFailed(unityAd: InterstitialAd, error: UnityAdsError) {
+                    override fun onUnityAdsShowStart(placementId: String) {}
+                    override fun onUnityAdsShowClick(placementId: String) {}
+                    override fun onUnityAdsShowComplete(
+                        placementId: String,
+                        state: UnityAdsShowCompletionState
+                    ) {
                         fullScreenAdShowing = false
                         loadInterstitial()
                     }
-                })
-            }
+                }
+            )
+        } else if (!interstitialLoaded) {
+            loadInterstitial()
         }
-        if (interstitialAd == null) loadInterstitial()
     }
 
     fun showRewarded(onReward: () -> Unit) {
-        val ad = rewardedAd
-        if (!initialized || ad == null || fullScreenAdShowing) {
+        if (!initialized || !rewardedLoaded || fullScreenAdShowing) {
             Toast.makeText(activity, "Rewarded ad is not ready yet. Please try again.", Toast.LENGTH_SHORT).show()
-            if (initialized && ad == null) loadRewarded()
+            if (initialized && !rewardedLoaded) loadRewarded()
             return
         }
-        rewardedAd = null
+        rewardedLoaded = false
         fullScreenAdShowing = true
-        var rewardGranted = false
-        ad.show(ShowConfiguration.Builder().build(), object : RewardedShowListener {
-            override fun onStarted(unityAd: RewardedAd) {}
-            override fun onClicked(unityAd: RewardedAd) {}
-            override fun onRewarded(unityAd: RewardedAd) {
-                if (!rewardGranted) {
-                    rewardGranted = true
-                    activity.runOnUiThread { onReward() }
+        UnityAds.show(activity, REWARDED_PLACEMENT, UnityAdsShowOptions(),
+            object : IUnityAdsShowListener {
+                override fun onUnityAdsShowFailure(
+                    placementId: String,
+                    error: UnityAds.UnityAdsShowError,
+                    message: String
+                ) {
+                    fullScreenAdShowing = false
+                    Toast.makeText(activity, "Ad could not be shown: $message", Toast.LENGTH_SHORT).show()
+                    loadRewarded()
+                }
+                override fun onUnityAdsShowStart(placementId: String) {}
+                override fun onUnityAdsShowClick(placementId: String) {}
+                override fun onUnityAdsShowComplete(
+                    placementId: String,
+                    state: UnityAdsShowCompletionState
+                ) {
+                    fullScreenAdShowing = false
+                    if (state == UnityAdsShowCompletionState.COMPLETED) {
+                        activity.runOnUiThread { onReward() }
+                    }
+                    loadRewarded()
                 }
             }
-            override fun onCompleted(unityAd: RewardedAd, state: ShowFinishState) {
-                fullScreenAdShowing = false
-                loadRewarded()
-            }
-            override fun onFailed(unityAd: RewardedAd, error: UnityAdsError) {
-                fullScreenAdShowing = false
-                Toast.makeText(activity, "Ad could not be shown: ${error.message}", Toast.LENGTH_SHORT).show()
-                loadRewarded()
-            }
-        })
+        )
     }
 
     fun destroy() {
-        (bannerView?.parent as? FrameLayout)?.removeView(bannerView)
+        banner?.destroy()
+        banner = null
         bannerView = null
-        bannerAd = null
     }
 }
 
