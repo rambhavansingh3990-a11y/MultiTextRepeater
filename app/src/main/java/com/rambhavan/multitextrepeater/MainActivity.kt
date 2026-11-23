@@ -82,7 +82,7 @@ private class UnityAdsController(private val activity: ComponentActivity) {
     private var generationsSinceAd = 0
     private var fullScreenAdShowing = false
 
-    fun initialize() {
+    @OptIn(com.unity3d.ads.UnityAdsExperimental::class)\n    fun initialize() {
         val config = InitializationConfiguration.Builder(UNITY_GAME_ID)
             .withTestMode(UNITY_TEST_MODE)
             .build()
@@ -141,7 +141,7 @@ private class UnityAdsController(private val activity: ComponentActivity) {
                 generationsSinceAd = 0
                 interstitialAd = null
                 fullScreenAdShowing = true
-                ad.show(activity, ShowConfiguration.Builder().build(), object : InterstitialShowListener {
+                ad.show(ShowConfiguration.Builder().build(), object : InterstitialShowListener {
                     override fun onStarted(unityAd: InterstitialAd) {}
                     override fun onClicked(unityAd: InterstitialAd) {}
                     override fun onCompleted(unityAd: InterstitialAd, state: ShowFinishState) {
@@ -168,7 +168,7 @@ private class UnityAdsController(private val activity: ComponentActivity) {
         rewardedAd = null
         fullScreenAdShowing = true
         var rewardGranted = false
-        ad.show(activity, ShowConfiguration.Builder().build(), object : RewardedShowListener {
+        ad.show(ShowConfiguration.Builder().build(), object : RewardedShowListener {
             override fun onStarted(unityAd: RewardedAd) {}
             override fun onClicked(unityAd: RewardedAd) {}
             override fun onRewarded(unityAd: RewardedAd) {
