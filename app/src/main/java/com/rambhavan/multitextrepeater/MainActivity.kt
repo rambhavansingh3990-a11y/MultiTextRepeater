@@ -46,7 +46,7 @@ private const val UNITY_GAME_ID = "800449377"
 private const val BANNER_PLACEMENT = "BP_Banner_Android"
 private const val INTERSTITIAL_PLACEMENT = "BP_Interstitial_Android"
 private const val REWARDED_PLACEMENT = "BP_Rewarded_Android"
-private const val UNITY_TEST_MODE = false
+private const val UNITY_TEST_MODE = true
 
 private val Accent = Color(0xFF5B5FEF)
 private val Canvas = Color(0xFFF5F6FC)
