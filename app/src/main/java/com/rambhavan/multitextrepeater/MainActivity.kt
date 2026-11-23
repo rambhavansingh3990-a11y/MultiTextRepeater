@@ -32,7 +32,6 @@ import com.unity3d.ads.IUnityAdsShowListener
 import com.unity3d.ads.UnityAds
 import com.unity3d.ads.UnityAdsLoadOptions
 import com.unity3d.ads.UnityAdsShowOptions
-import com.unity3d.ads.UnityAdsShowCompletionState
 import com.unity3d.services.banners.BannerErrorInfo
 import com.unity3d.services.banners.BannerView
 import com.unity3d.services.banners.UnityBannerSize
@@ -170,7 +169,7 @@ private class UnityAdsController(private val activity: ComponentActivity) {
                     override fun onUnityAdsShowClick(placementId: String) {}
                     override fun onUnityAdsShowComplete(
                         placementId: String,
-                        state: UnityAdsShowCompletionState
+                        state: UnityAds.UnityAdsShowCompletionState
                     ) {
                         fullScreenAdShowing = false
                         loadInterstitial()
@@ -208,7 +207,7 @@ private class UnityAdsController(private val activity: ComponentActivity) {
                     state: UnityAdsShowCompletionState
                 ) {
                     fullScreenAdShowing = false
-                    if (state == UnityAdsShowCompletionState.COMPLETED) {
+                    if (state == UnityAds.UnityAdsShowCompletionState.COMPLETED) {
                         activity.runOnUiThread { onReward() }
                     }
                     loadRewarded()
